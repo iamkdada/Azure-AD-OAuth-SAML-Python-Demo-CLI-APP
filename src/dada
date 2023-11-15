@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 
 from dada_cli.Command import DadaCommandsLoader, DadaCLIHelp
 
-# .env ファイルのパス
-os.environ["DADA_DATA_PATH"] = "~/.dada/config.env"
+
 DADA_DATA_PATH = os.getenv("DADA_DATA_PATH")
 ALL_ENV_VARS = [
     "CLIENT_ID",

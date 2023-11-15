@@ -12,7 +12,6 @@ import json
 import requests
 import jwt
 from knack.log import get_logger
-from knack.util import CLIError
 
 from .util import is_wsl, is_windows, open_page_in_browser, ClientRedirectServer, ClientRedirectHandler, decode_base64
 

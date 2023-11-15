@@ -1,0 +1,13 @@
+{
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "black-formatter.args": [
+        "--line-length=120"
+    ],
+    "python.analysis.extraPaths": [
+        "./src"
+    ],
+    "flake8.interpreter": [
+        "--max-line-length=120"
+    ],
+}

@@ -22,7 +22,6 @@ CREDENTIAL_ENV_VARS = [
     "SAML_RESPONSE",
 ]
 
-os.environ["DADA_DATA_PATH"] = "~/.dada/config.env"
 DADA_DATA_PATH = os.getenv("DADA_DATA_PATH")
 load_dotenv(DADA_DATA_PATH)
 
@@ -186,13 +185,23 @@ def set_credential(path=None, passphrase=None, secret=None):
 
 def saml_request(sign=False, force_authn=False, name_id_format=None, authn_context=None):
     cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
-    saml_app = SAMLApp(entity_id=ENTITY_ID, tenant_id=TENANT_ID, saml_response=SAML_RESPONSE, credential=cred)
+    saml_app = SAMLApp(
+        entity_id=ENTITY_ID,
+        tenant_id=TENANT_ID,
+        saml_response=SAML_RESPONSE,
+        credential=cred,
+    )
     return saml_app.saml_request(sign, force_authn, name_id_format, authn_context)
 
 
 def get_saml_response():
     cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
-    saml_app = SAMLApp(entity_id=ENTITY_ID, tenant_id=TENANT_ID, saml_response=SAML_RESPONSE, credential=cred)
+    saml_app = SAMLApp(
+        entity_id=ENTITY_ID,
+        tenant_id=TENANT_ID,
+        saml_response=SAML_RESPONSE,
+        credential=cred,
+    )
     return saml_app.saml_response
 
 
