@@ -10,6 +10,9 @@ from dada_core.client_credential import ClientCredentialApp
 from dada_core.credential import Credential
 from dada_core.saml import SAMLApp
 
+DADA_DATA_PATH = os.getenv("DADA_DATA_PATH")
+load_dotenv(DADA_DATA_PATH)
+
 CREDENTIAL_ENV_VARS = [
     "AUTH_CODE_AT",
     "AUTH_CODE_IT",
@@ -21,9 +24,6 @@ CREDENTIAL_ENV_VARS = [
     "CAE_CLAIMS_CHALLENGE",
     "SAML_RESPONSE",
 ]
-
-DADA_DATA_PATH = os.getenv("DADA_DATA_PATH")
-load_dotenv(DADA_DATA_PATH)
 
 CLIENT_ID = os.getenv("CLIENT_ID")
 TENANT_ID = os.getenv("TENANT_ID")
@@ -48,6 +48,7 @@ class DadaCommandsLoader(CLICommandsLoader):
         with CommandGroup(self, "", "dada_cli.Command#{}") as g:
             g.command("credential", "set_credential")
             g.command("logout", "logout")
+            g.command("jwt_decode", "jwt_decode")
 
         with CommandGroup(self, "auth_code", "dada_cli.Command#{}") as g:
             g.command("token_request", "auth_code_token_request")
@@ -56,7 +57,8 @@ class DadaCommandsLoader(CLICommandsLoader):
 
         with CommandGroup(self, "client_cred", "dada_cli.Command#{}") as g:
             g.command("token_request", "client_cred_token_request")
-            g.command("show", "get_client_cred_token")
+            g.command("show", "client_cred_get_token")
+            g.command("get_assertion", "client_cred_get_assertion")
 
         with CommandGroup(self, "cert", "dada_cli.Command#{}") as g:
             g.command("thumbprint", "get_thumbprint")
@@ -101,6 +103,9 @@ class DadaCommandsLoader(CLICommandsLoader):
             ac.argument("path", type=str)
             ac.argument("passphrase", type=str)
             ac.argument("secret", type=str)
+
+        with ArgumentsContext(self, "jwt_decode") as ac:
+            ac.argument("token", type=str)
 
         return super().load_arguments(command)
 
@@ -156,6 +161,7 @@ def client_cred_token_request(credential, secret=None, pfx=None, passphrase=None
             return cred_app.token_request("secret")
         else:
             return cred_app.token_request("secret")
+
     elif "cert" in credential:
         if pfx:
             cred.load_cert_file(pfx, passphrase)
@@ -165,13 +171,19 @@ def client_cred_token_request(credential, secret=None, pfx=None, passphrase=None
             return cred_app.token_request("cert")
 
 
-def get_client_cred_token(decode=None):
+def client_cred_get_token(decode=None):
     cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
     cred_app = ClientCredentialApp(CLIENT_ID, TENANT_ID, cred, CLIENT_CREDENTIAL_AT)
 
     if decode:
         return cred_app.get_decode_access_token()
     return cred_app.get_access_token()
+
+
+def client_cred_get_assertion():
+    cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
+    cred_app = ClientCredentialApp(CLIENT_ID, TENANT_ID, cred, CLIENT_CREDENTIAL_AT)
+    return cred_app.create_jwt_assertion()
 
 
 def set_credential(path=None, passphrase=None, secret=None):
@@ -214,3 +226,9 @@ def logout():
     for key in CREDENTIAL_ENV_VARS:
         os.environ[key] = ""
     return "logout"
+
+
+def jwt_decode(token):
+    import jwt
+
+    return jwt.decode(token, options={"verify_signature": False})

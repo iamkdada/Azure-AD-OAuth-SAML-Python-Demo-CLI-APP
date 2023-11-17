@@ -148,14 +148,13 @@ class AuthCodeApp:
 
         authorization_code_request_url = self._generate_authorization_code_request_url()
         logger.debug(f"authorization code url: {authorization_code_request_url}")
-        # launch browser:
+
         succ = open_page_in_browser(authorization_code_request_url)
         if succ is False:
             web_server.server_close()
             results["no_browser"] = True
             return
 
-        # wait for callback from browser.
         while True:
             web_server.handle_request()
             if "error" in web_server.query_params or "code" in web_server.query_params:
@@ -210,7 +209,7 @@ class AuthCodeApp:
         # Represent capabilities as {"access_token": {"xms_cc": {"values": capabilities}}}
         # and then merge/add it into incoming claims
         claims_dict = json.loads(claims_challenge) if claims_challenge else {}
-        for key in ["access_token"]:  # We could add "id_token" if we'd decide to
+        for key in ["access_token"]:
             claims_dict.setdefault(key, {}).update(xms_cc={"values": self.capabilities})
         return json.dumps(claims_dict)
 
