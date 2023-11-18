@@ -1,42 +1,16 @@
 import os
 
-from knack.commands import CLICommandsLoader, CommandGroup, CLICommand
+from knack.commands import CLICommandsLoader, CommandGroup
 from knack.arguments import ArgumentsContext
 from knack.help import CLIHelp
-from dotenv import load_dotenv
 
 from dada_core.auth_code import AuthCodeApp
 from dada_core.client_credential import ClientCredentialApp
 from dada_core.credential import Credential
 from dada_core.saml import SAMLApp
 
-DADA_DATA_PATH = os.getenv("DADA_DATA_PATH")
-load_dotenv(DADA_DATA_PATH)
+from dada_cli.Cli import get_env_ver
 
-CREDENTIAL_ENV_VARS = [
-    "AUTH_CODE_AT",
-    "AUTH_CODE_IT",
-    "AUTH_CODE_RT",
-    "CLIENT_CREDENTIAL_AT",
-    "PRIVATE_KEY",
-    "PUBLIC_KEY",
-    "CLIENT_SECRET",
-    "CAE_CLAIMS_CHALLENGE",
-    "SAML_RESPONSE",
-]
-
-CLIENT_ID = os.getenv("CLIENT_ID")
-TENANT_ID = os.getenv("TENANT_ID")
-AUTH_CODE_AT = os.getenv("AUTH_CODE_AT")
-AUTH_CODE_IT = os.getenv("AUTH_CODE_IT")
-AUTH_CODE_RT = os.getenv("AUTH_CODE_RT")
-PRIVATE_KEY = os.getenv("PRIVATE_KEY").replace("\\n", "\n")
-PUBLIC_KEY = os.getenv("PUBLIC_KEY").replace("\\n", "\n")
-CLIENT_CREDENTIAL_AT = os.getenv("CLIENT_CREDENTIAL_AT")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-CAE_CLAIMS_CHALLENGE = os.getenv("CAE_CLAIMS_CHALLENGE")
-ENTITY_ID = os.getenv("ENTITY_ID")
-SAML_RESPONSE = os.getenv("SAML_RESPONSE")
 
 WELCOME_MESSAGE = r"""
 Welcome to the DADA CLI!
@@ -120,9 +94,12 @@ class DadaCLIHelp(CLIHelp):
 
 
 def auth_code_token_request(cae=False, scopes=None):
-    auth_code_app = AuthCodeApp(CLIENT_ID, TENANT_ID, AUTH_CODE_AT, AUTH_CODE_IT, AUTH_CODE_RT, scope=scopes)
+    env = get_env_ver()
+    auth_code_app = AuthCodeApp(
+        env["CLIENT_ID"], env["TENANT_ID"], env["AUTH_CODE_AT"], env["AUTH_CODE_IT"], env["AUTH_CODE_RT"], scope=scopes
+    )
     if cae:
-        auth_code_app.token_request(cae=True, cae_claims_challenge=CAE_CLAIMS_CHALLENGE)
+        auth_code_app.token_request(cae=True, cae_claims_challenge=env["CAE_CLAIMS_CHALLENGE"])
     else:
         auth_code_app.token_request()
 
@@ -130,7 +107,10 @@ def auth_code_token_request(cae=False, scopes=None):
 
 
 def get_auth_code_token(decode=False, token_type="access"):
-    auth_code_app = AuthCodeApp(CLIENT_ID, TENANT_ID, AUTH_CODE_AT, AUTH_CODE_IT, AUTH_CODE_RT)
+    env = get_env_ver()
+    auth_code_app = AuthCodeApp(
+        env["CLIENT_ID"], env["TENANT_ID"], env["AUTH_CODE_AT"], env["AUTH_CODE_IT"], env["AUTH_CODE_RT"]
+    )
     token_methods = {
         (False, "access"): auth_code_app.get_access_token,
         (False, "id"): auth_code_app.get_id_token,
@@ -146,13 +126,17 @@ def get_auth_code_token(decode=False, token_type="access"):
 
 
 def graph_request(url="me", method="GET", body=None, ver="v1.0"):
-    auth_code_app = AuthCodeApp(CLIENT_ID, TENANT_ID, AUTH_CODE_AT, AUTH_CODE_IT, AUTH_CODE_RT)
+    env = get_env_ver()
+    auth_code_app = AuthCodeApp(
+        env["CLIENT_ID"], env["TENANT_ID"], env["AUTH_CODE_AT"], env["AUTH_CODE_IT"], env["AUTH_CODE_RT"]
+    )
     return auth_code_app.graph_request(url_path=url, method=method, body=body, ver=ver)
 
 
 def client_cred_token_request(credential, secret=None, pfx=None, passphrase=None):
-    cred = Credential(secret=secret, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
-    cred_app = ClientCredentialApp(CLIENT_ID, TENANT_ID, cred, CLIENT_CREDENTIAL_AT)
+    env = get_env_ver()
+    cred = Credential(secret=secret, public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
+    cred_app = ClientCredentialApp(env["CLIENT_ID"], env["TENANT_ID"], cred, env["CLIENT_CREDENTIAL_AT"])
 
     if "secret" in credential:
         if secret:
@@ -172,8 +156,9 @@ def client_cred_token_request(credential, secret=None, pfx=None, passphrase=None
 
 
 def client_cred_get_token(decode=None):
-    cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
-    cred_app = ClientCredentialApp(CLIENT_ID, TENANT_ID, cred, CLIENT_CREDENTIAL_AT)
+    env = get_env_ver()
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
+    cred_app = ClientCredentialApp(env["CLIENT_ID"], env["TENANT_ID"], cred, env["CLIENT_CREDENTIAL_AT"])
 
     if decode:
         return cred_app.get_decode_access_token()
@@ -181,13 +166,15 @@ def client_cred_get_token(decode=None):
 
 
 def client_cred_get_assertion():
-    cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
-    cred_app = ClientCredentialApp(CLIENT_ID, TENANT_ID, cred, CLIENT_CREDENTIAL_AT)
+    env = get_env_ver()
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
+    cred_app = ClientCredentialApp(env["CLIENT_ID"], env["TENANT_ID"], cred, env["CLIENT_CREDENTIAL_AT"])
     return cred_app.create_jwt_assertion()
 
 
 def set_credential(path=None, passphrase=None, secret=None):
-    cred = Credential(secret=secret, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
+    env = get_env_ver()
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     if secret:
         cred.secret = secret
     elif path:
@@ -196,33 +183,47 @@ def set_credential(path=None, passphrase=None, secret=None):
 
 
 def saml_request(sign=False, force_authn=False, name_id_format=None, authn_context=None):
-    cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
+    env = get_env_ver()
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     saml_app = SAMLApp(
-        entity_id=ENTITY_ID,
-        tenant_id=TENANT_ID,
-        saml_response=SAML_RESPONSE,
+        entity_id=env["ENTITY_ID"],
+        tenant_id=env["TENANT_ID"],
+        saml_response=env["SAML_RESPONSE"],
         credential=cred,
     )
     return saml_app.saml_request(sign, force_authn, name_id_format, authn_context)
 
 
 def get_saml_response():
-    cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
+    env = get_env_ver()
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     saml_app = SAMLApp(
-        entity_id=ENTITY_ID,
-        tenant_id=TENANT_ID,
-        saml_response=SAML_RESPONSE,
+        entity_id=env["ENTITY_ID"],
+        tenant_id=env["TENANT_ID"],
+        saml_response=env["SAML_RESPONSE"],
         credential=cred,
     )
     return saml_app.saml_response
 
 
 def get_thumbprint():
-    cred = Credential(secret=CLIENT_SECRET, public_key=PUBLIC_KEY, private_key=PRIVATE_KEY)
+    env = get_env_ver()
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     return cred.get_thumbprint()
 
 
 def logout():
+    CREDENTIAL_ENV_VARS = [
+        "AUTH_CODE_AT",
+        "AUTH_CODE_IT",
+        "AUTH_CODE_RT",
+        "CLIENT_CREDENTIAL_AT",
+        "PRIVATE_KEY",
+        "PUBLIC_KEY",
+        "CLIENT_SECRET",
+        "CAE_CLAIMS_CHALLENGE",
+        "SAML_RESPONSE",
+    ]
     for key in CREDENTIAL_ENV_VARS:
         os.environ[key] = ""
     return "logout"
