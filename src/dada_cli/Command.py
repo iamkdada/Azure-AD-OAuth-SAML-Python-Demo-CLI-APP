@@ -231,5 +231,14 @@ def logout():
 
 def jwt_decode(token):
     import jwt
+    import json
 
-    return jwt.decode(token, options={"verify_signature": False})
+    header = jwt.get_unverified_header(token)
+    payload = jwt.decode(token, options={"verify_signature": False})
+
+    header_json = json.dumps(header, indent=2)
+    payload_json = json.dumps(payload, indent=2)
+
+    jwt_components = f"{header_json}.\n{payload_json}.\n[Signature]"
+    print(jwt_components)
+    return

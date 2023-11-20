@@ -1,11 +1,14 @@
-import uuid
-from urllib.parse import quote
 import base64
+import os
+import socket
+import uuid
 import zlib
 from datetime import datetime
+from urllib.parse import quote
+
 import xml.etree.ElementTree as ET
-import socket
-import os
+from knack.util import CLIError
+from knack.log import get_logger
 
 from .util import (
     is_wsl,
@@ -24,9 +27,16 @@ name_id_policy_mapping = {
     "transient": "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
 }
 
+logger = get_logger(__name__)
+
 
 class SAMLApp:
     def __init__(self, entity_id, tenant_id, forth_authn=False, saml_response=None, credential=None):
+        if not entity_id:
+            raise CLIError("Entity ID is not set.")
+        if not tenant_id:
+            raise CLIError("Tenant ID is not set.")
+
         self.entity_id = entity_id
         self.tenant_id = tenant_id
         self.forth_authn = forth_authn
@@ -52,18 +62,22 @@ class SAMLApp:
         return signature_encoded
 
     def _add_name_id_policy(self, authn_request, format_type="persistent", allow_create=True):
-        ET.SubElement(
-            authn_request,
-            "samlp:NameIDPolicy",
-            {"Format": name_id_policy_mapping[format_type], "AllowCreate": str(allow_create).lower()},
-        )
-        return authn_request
+        if format_type in name_id_policy_mapping:
+            ET.SubElement(
+                authn_request,
+                "samlp:NameIDPolicy",
+                {"Format": name_id_policy_mapping[format_type], "AllowCreate": str(allow_create).lower()},
+            )
+            return authn_request
+        else:
+            raise CLIError(
+                "Name ID Format is not correct. Supporting Name ID Format is  'persistent', 'emailAddress', 'unspecified', 'transient'."
+            )
 
     def _add_issuer(self, authn_request):
         issuer_element = ET.SubElement(
             authn_request, "saml:Issuer", {"xmlns:saml": "urn:oasis:names:tc:SAML:2.0:assertion"}
         )
-
         issuer_element.text = self.entity_id
         return authn_request
 
@@ -86,7 +100,6 @@ class SAMLApp:
         return saml_request_param
 
     def _generate_saml_request_url(self, is_sign=False, is_force_authn=False, name_id_format=None, authn_context=None):
-        # XMLのRoot要素を作成
         authn_request = ET.Element(
             "samlp:AuthnRequest",
             {
@@ -104,13 +117,13 @@ class SAMLApp:
         if is_force_authn:
             authn_request.set("ForceAuthn", "true")
         if name_id_format:
-            authn_request = self._add_name_id_policy(authn_request)
+            authn_request = self._add_name_id_policy(authn_request, name_id_format)
         if authn_context:
             # example "urn:oasis:names:tc:SAML:2.0:ac:classes:X509"
             authn_request = self._add_requested_authn_context(authn_request, authn_context)
 
         request_xml = ET.tostring(authn_request, encoding="unicode")
-        print(request_xml)
+        logger.debug(f"Saml Request XML: {request_xml}")
         request_deflated = zlib.compress(request_xml.encode("utf-8"))[2:-4]
         saml_request_encoded = base64.b64encode(request_deflated).decode("utf-8")
         saml_request_quoted = quote(saml_request_encoded)
@@ -120,7 +133,7 @@ class SAMLApp:
             saml_request_param = self._add_signature_param(saml_request_param)
 
         saml_request_url = f"{self.idp_url}?{saml_request_param}"
-
+        logger.debug(f"Saml Request URL: {saml_request_url}")
         return saml_request_url
 
     def _saml_request_worker(self, results, is_sign, is_force_authn, name_id_format, authn_context):

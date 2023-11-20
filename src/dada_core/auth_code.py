@@ -1,17 +1,18 @@
-import random
-import hashlib
-import string
-import os
 import base64
-import socket
-import urllib.parse
-import threading
-import time
+import hashlib
 import json
+import os
+import random
+import socket
+import string
+import time
+import threading
+import urllib.parse
 
 import requests
 import jwt
 from knack.log import get_logger
+from knack.util import CLIError
 
 from .util import is_wsl, is_windows, open_page_in_browser, ClientRedirectServer, ClientRedirectHandler, decode_base64
 
@@ -29,8 +30,13 @@ class AuthCodeApp:
         :param access_token: Non decode access token. Environment Variable "AUTH_CODE_AT"
         :param id_token: Non decode id token. Environment Variable "AUTH_CODE_IT"
         :param refresh_token : Non decode refresh token. Environment Variable "AUTH_CODE_RT"
-        :param scope : api permission. Example "User.Read openid email profile"
+        :param scope : Api permission. Example "User.Read openid email profile"
         """
+        if not client_id:
+            raise CLIError("Client ID is not set.")
+        if not tenant_id:
+            raise CLIError("Tenant ID is not set.")
+
         self.client_id = client_id
         self.tenant_id = tenant_id
         self._access_token = access_token
@@ -171,7 +177,7 @@ class AuthCodeApp:
         if "code" in web_server.query_params:
             code = web_server.query_params["code"]
         else:
-            print(
+            logger.warning(
                 'Authentication Error: Authorization code was not captured in query strings "%s"',
                 web_server.query_params,
             )
@@ -197,7 +203,6 @@ class AuthCodeApp:
         t.daemon = True
         t.start()
         while True:
-            # so that ctrl+c can stop the command
             time.sleep(2)
             if not t.is_alive():
                 break  # done
@@ -231,40 +236,50 @@ class AuthCodeApp:
             self._set_cae_claims(cae_claims_challenge)
 
         self._get_authorization_code()
+        params = self._build_token_request_params(cae)
+        response = self._send_token_request(params)
 
-        token_request_url = f"{self.ca_url}/oauth2/v2.0/token"
+        return self._process_token_response(response)
 
-        logger.debug("---------------Token request param ---------------")
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        params = {}
-        params["client_id"] = self.client_id
-        params["scope"] = self.scope
-        params["redirect_uri"] = self.reply_url
-        params["code"] = self.code
-        params["code_verifier"] = self.code_verifier
-        params["grant_type"] = "authorization_code"
+    def _build_token_request_params(self, cae):
+        params = {
+            "client_id": self.client_id,
+            "scope": self.scope,
+            "redirect_uri": self.reply_url,
+            "code": self.code,
+            "code_verifier": self.code_verifier,
+            "grant_type": "authorization_code",
+        }
         if cae:
             params["claims"] = self.cae_claim
-            logger.debug(f"claims : {self.cae_claim}")
-        logger.debug(f"client_id : {self.client_id}")
-        logger.debug(f"scope : {self.scope}")
-        logger.debug(f"code : *****")
-        logger.debug(f"code_verifier: {self.code_verifier}")
-        logger.debug(f"grant_type : authorization_code")
+        self._log_token_request_params(params)
+        return params
+
+    def _log_token_request_params(self, params):
+        logger.debug("---------------Token request param ---------------")
+        for key, value in params.items():
+            if key == "code":  # Hide the actual code value
+                logger.debug("code : *****")
+            else:
+                logger.debug(f"{key} : {value}")
         logger.debug("--------------------------------------------------")
 
-        response = requests.post(token_request_url, headers=headers, data=params)
+    def _send_token_request(self, params):
+        token_request_url = f"{self.ca_url}/oauth2/v2.0/token"
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        return requests.post(token_request_url, headers=headers, data=params)
 
+    def _process_token_response(self, response):
+        result = {}
         if response.ok:
             self.access_token = response.json().get("access_token", "")
             self.id_token = response.json().get("id_token", "")
             self.refresh_token = response.json().get("refresh_token", "")
-            return self.access_token
-
+            result["access token"] = self.access_token
         else:
-            print("Error:", response.status_code)
-            print("Details:", response.text)
-            return
+            result["status code"] = response.status_code
+            result["body"] = response.json()
+        return result
 
     def get_access_token(self):
         return self.access_token
