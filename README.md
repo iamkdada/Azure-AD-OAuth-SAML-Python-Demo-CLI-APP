@@ -31,10 +31,6 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
       $ pip3 install -r requirements.txt
       $ export PATH="$PATH:$PWD/src"
      ```
-  2. DADA_DATA_PATH set above config.env.
-     ```bash
-     $ export DADA_DATA_PATH="$PWD/.dada/config"
-     ```
 
 ### Windows
    1. Download this project
@@ -51,15 +47,55 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
       #### PowerShell 
       ```bash
       > $Env:PATH += ";$PWD\src"
-      > $Env:DADA_DATA_PATH = "$PWD\.dada\config"
       ```
       #### Command Prompt
       ```bash
       set PATH=%PATH%;%CD%\src
-      set DADA_DATA_PATH=%CD%\.dada\config
       ```
 
    Plan to make improvements for easier installation.
+
+## App Setting
+
+### OIDC App
+#### Entra ID (Azure AD)
+   1. Browse to [Azure Portal]>[Microsoft Entra ID]>[App Registrations] and select New registration.
+   2. Enter a Name for your application, for example dada-cli-oidc. Users of your app might see this name, and you can change it later.
+   3. Select bellow
+      - Account Type : "Accounts in this organizational directory only"
+      - Platform"Public client/native (mobile & desktop)"
+      - Redirect uri : http://localhost
+   4. Select Register to create the application.
+
+#### DADA CLI
+   1. Setting Tenant ID & Client ID
+      ```bash
+      dada configure --tenant-id "<Your Tenant ID>" --client-id "Registered Application ID"
+      ```
+   2. Let's token request
+      ```bash
+      dada auth_code token_request
+      ```
+
+### SAML App
+#### Entra ID (Azure AD)
+   1. Browse to [Azure Portal]>[Microsoft Entra ID]>[Enterprise Application] and select New application.
+   2. Select Create your own application
+   3. Enter a Name for your application, for example dada-cli-saml. Users of your app might see this name, and you can change it later.
+   4. Select "Integrate any other application you don't find in the gallery (Non-gallery)" and select Create
+   5. Browse to [Single sign-on]>[SAML] and select Edit.
+   6. Add identifier, for example dada.
+   7. Add reply URL as http://localhost
+
+#### DADA CLI
+   1. Setting Tenant ID & Client ID
+      ```bash
+      dada configure --tenant-id "<Your Tenant ID>" --entity-id "Registered Application Entity ID"
+      ```
+   2. Let's saml request
+      ```bash
+      dada saml saml_request
+      ```
 
 ## Example
 

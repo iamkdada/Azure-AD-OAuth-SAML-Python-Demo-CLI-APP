@@ -20,8 +20,9 @@ Welcome to the DADA CLI!
 class DadaCommandsLoader(CLICommandsLoader):
     def load_command_table(self, args):
         with CommandGroup(self, "", "dada_cli.Command#{}") as g:
-            g.command("credential", "set_credential")
+            g.command("configure", "set_dada")
             g.command("logout", "logout")
+            g.command("credential", "set_credential")
             g.command("jwt_decode", "jwt_decode")
 
         with CommandGroup(self, "auth_code", "dada_cli.Command#{}") as g:
@@ -80,6 +81,11 @@ class DadaCommandsLoader(CLICommandsLoader):
 
         with ArgumentsContext(self, "jwt_decode") as ac:
             ac.argument("token", type=str)
+
+        with ArgumentsContext(self, "set_dada") as ac:
+            ac.argument("tenant_id", type=str)
+            ac.argument("client_id", type=str)
+            ac.argument("entity_id", type=str)
 
         return super().load_arguments(command)
 
@@ -210,6 +216,13 @@ def get_thumbprint():
     env = get_env_ver()
     cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     return cred.get_thumbprint()
+
+
+def set_dada(tenant_id=None, client_id=None, entity_id=None):
+    os.environ["TENANT_ID"] = tenant_id if tenant_id else os.environ["TENANT_ID"]
+    os.environ["CLIENT_ID"] = client_id if client_id else os.environ["CLIENT_ID"]
+    os.environ["ENTITY_ID"] = entity_id if entity_id else os.environ["ENTITY_ID"]
+    return
 
 
 def logout():
