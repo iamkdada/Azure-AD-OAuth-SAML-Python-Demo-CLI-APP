@@ -74,7 +74,7 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
       ```
    2. Let's token request
       ```bash
-      dada auth_code token_request
+      dada auth-code token_request
       ```
 
 ### SAML App
@@ -101,14 +101,14 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
 
 - auth code token request
    ```bash
-   $ dada auth_code token_request
+   $ dada auth-code token-request
    "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Imk2bEdrM0ZaenhSY1ViMkMzbkV~~~~~~~~~
    "
    ```
 
 - decode token
    ```bash
-   $ dada auth_code show --token id --decode
+   $ dada auth-code show --token id --decode
    {
    "aud": "<GUID>",
    "exp": 1700021556,
@@ -128,8 +128,8 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
 
 - saml request
    ```bash
-   $ dada saml saml_request --sign --force-authn
+   $ dada saml saml-request --sign --force-authn
    "
-   decode saml resuponse
+   <decode saml resuponse>
    "
    ```
