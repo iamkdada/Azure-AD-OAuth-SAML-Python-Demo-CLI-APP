@@ -44,7 +44,7 @@ def get_config_dir():
 
 
 def get_default_cli():
-    from dada_cli.Command import DadaCommandsLoader, DadaCLIHelp
+    from dada_cli.command import DadaCommandsLoader, DadaCLIHelp
 
     DADA_DATA_PATH = get_config_dir()
     return DadaCli(

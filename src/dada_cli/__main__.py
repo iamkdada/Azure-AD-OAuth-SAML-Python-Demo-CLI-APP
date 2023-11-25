@@ -1,6 +1,6 @@
 import sys
 
-from dada_cli.Cli import get_default_cli
+from dada_cli.cli import get_default_cli
 
 
 def cli_main(cli, args):

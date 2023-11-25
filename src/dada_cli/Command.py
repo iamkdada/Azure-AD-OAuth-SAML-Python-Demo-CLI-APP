@@ -10,7 +10,7 @@ from dada_core.client_credential import ClientCredentialApp
 from dada_core.credential import Credential
 from dada_core.saml import SAMLApp
 
-from dada_cli.Cli import get_env_ver
+from dada_cli.cli import get_env_ver
 
 
 WELCOME_MESSAGE = r"""
@@ -20,27 +20,27 @@ Welcome to the DADA CLI!
 
 class DadaCommandsLoader(CLICommandsLoader):
     def load_command_table(self, args):
-        with CommandGroup(self, "", "dada_cli.Command#{}") as g:
+        with CommandGroup(self, "", "dada_cli.command#{}") as g:
             g.command("configure", "set_dada")
             g.command("logout", "logout")
             g.command("credential", "set_credential")
             g.command("jwt-decode", "jwt_decode")
 
-        with CommandGroup(self, "auth-code", "dada_cli.Command#{}") as g:
+        with CommandGroup(self, "auth-code", "dada_cli.command#{}") as g:
             g.command("token-request", "auth_code_token_request")
             g.command("show", "get_auth_code_token")
             g.command("graph-request", "auth_code_graph_request")
 
-        with CommandGroup(self, "client-cred", "dada_cli.Command#{}") as g:
+        with CommandGroup(self, "client-cred", "dada_cli.command#{}") as g:
             g.command("token-request", "client_cred_token_request")
             g.command("show", "client_cred_get_token")
             g.command("graph-request", "client_cred_graph_request")
 
-        with CommandGroup(self, "credential", "dada_cli.Command#{}") as g:
+        with CommandGroup(self, "credential", "dada_cli.command#{}") as g:
             g.command("thumbprint", "credential_get_thumbprint")
             g.command("assertion", "credential_get_assertion")
 
-        with CommandGroup(self, "saml", "dada_cli.Command#{}") as g:
+        with CommandGroup(self, "saml", "dada_cli.command#{}") as g:
             g.command("saml-request", "saml_request")
             g.command("show", "get_saml_response")
 
