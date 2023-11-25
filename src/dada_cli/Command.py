@@ -3,6 +3,7 @@ import os
 from knack.commands import CLICommandsLoader, CommandGroup
 from knack.arguments import ArgumentsContext
 from knack.help import CLIHelp
+from knack.util import CLIError
 
 from dada_core.auth_code import AuthCodeApp
 from dada_core.client_credential import ClientCredentialApp
@@ -23,52 +24,56 @@ class DadaCommandsLoader(CLICommandsLoader):
             g.command("configure", "set_dada")
             g.command("logout", "logout")
             g.command("credential", "set_credential")
-            g.command("jwt_decode", "jwt_decode")
+            g.command("jwt-decode", "jwt_decode")
 
-        with CommandGroup(self, "auth_code", "dada_cli.Command#{}") as g:
-            g.command("token_request", "auth_code_token_request")
+        with CommandGroup(self, "auth-code", "dada_cli.Command#{}") as g:
+            g.command("token-request", "auth_code_token_request")
             g.command("show", "get_auth_code_token")
-            g.command("graph_request", "graph_request")
+            g.command("graph-request", "graph_request")
 
-        with CommandGroup(self, "client_cred", "dada_cli.Command#{}") as g:
-            g.command("token_request", "client_cred_token_request")
+        with CommandGroup(self, "client-cred", "dada_cli.Command#{}") as g:
+            g.command("token-request", "client_cred_token_request")
             g.command("show", "client_cred_get_token")
-            g.command("get_assertion", "client_cred_get_assertion")
 
-        with CommandGroup(self, "cert", "dada_cli.Command#{}") as g:
-            g.command("thumbprint", "get_thumbprint")
+        with CommandGroup(self, "credential", "dada_cli.Command#{}") as g:
+            g.command("thumbprint", "credential_get_thumbprint")
+            g.command("assertion", "credential_get_assertion")
 
         with CommandGroup(self, "saml", "dada_cli.Command#{}") as g:
-            g.command("saml_request", "saml_request")
+            g.command("saml-request", "saml_request")
             g.command("show", "get_saml_response")
 
         return super(DadaCommandsLoader, self).load_command_table(args)
 
     def load_arguments(self, command):
-        with ArgumentsContext(self, "auth_code show") as ac:
+        with ArgumentsContext(self, "auth-code show") as ac:
             ac.argument("decode", action="store_true", help="Enable decoding")
             ac.argument("token_type", type=str, default="access", help="access, id, refresh")
 
-        with ArgumentsContext(self, "auth_code token_request") as ac:
+        with ArgumentsContext(self, "auth-code token_request") as ac:
             ac.argument("cae", action="store_true", help="Enable decoding")
             ac.argument("scopes", type=str)
 
-        with ArgumentsContext(self, "auth_code graph_request") as ac:
+        with ArgumentsContext(self, "auth-code graph-request") as ac:
             ac.argument("url", type=str)
             ac.argument("method", type=str)
             ac.argument("body", type=str)
             ac.argument("ver", type=str)
 
-        with ArgumentsContext(self, "client_cred token_request") as ac:
+        with ArgumentsContext(self, "client-cred token-request") as ac:
             ac.argument("credential", type=str, required=True)
             ac.argument("secret", type=str)
             ac.argument("pfx", type=str)
             ac.argument("passphrase", type=str)
 
-        with ArgumentsContext(self, "client_cred show") as ac:
+        with ArgumentsContext(self, "client-cred show") as ac:
             ac.argument("decode", action="store_true", help="Enable decoding")
 
-        with ArgumentsContext(self, "saml saml_request") as ac:
+        with ArgumentsContext(self, "credential assertion") as ac:
+            ac.argument("tenant_id", type=str)
+            ac.argument("client_id", type=str)
+
+        with ArgumentsContext(self, "saml saml-request") as ac:
             ac.argument("sign", action="store_true", help="Enable Signature")
             ac.argument("force_authn", action="store_true")
             ac.argument("name_id_format", type=str)
@@ -79,7 +84,7 @@ class DadaCommandsLoader(CLICommandsLoader):
             ac.argument("passphrase", type=str)
             ac.argument("secret", type=str)
 
-        with ArgumentsContext(self, "jwt_decode") as ac:
+        with ArgumentsContext(self, "jwt-decode") as ac:
             ac.argument("token", type=str)
 
         with ArgumentsContext(self, "set_dada") as ac:
@@ -171,11 +176,18 @@ def client_cred_get_token(decode=None):
     return cred_app.get_access_token()
 
 
-def client_cred_get_assertion():
+def credential_get_assertion(tenant_id=None, client_id=None):
     env = get_env_ver()
+    tenant_id = tenant_id if tenant_id else env["TENANT_ID"]
+    client_id = client_id if client_id else env["CLIENT_ID"]
+
+    if not tenant_id:
+        raise CLIError("Tenant ID is not set.Please execute 'dada configure --tenant-id <tenant-id>'")
+    if not client_id:
+        raise CLIError("Client ID is not set. Please execute 'dada configure --client-id <client-id>'")
+
     cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
-    cred_app = ClientCredentialApp(env["CLIENT_ID"], env["TENANT_ID"], cred, env["CLIENT_CREDENTIAL_AT"])
-    return cred_app.create_jwt_assertion()
+    return cred.generate_jwt_assertion(tenant_id, client_id)
 
 
 def set_credential(path=None, passphrase=None, secret=None):
@@ -212,7 +224,7 @@ def get_saml_response():
     return saml_app.saml_response
 
 
-def get_thumbprint():
+def credential_get_thumbprint():
     env = get_env_ver()
     cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     return cred.get_thumbprint()

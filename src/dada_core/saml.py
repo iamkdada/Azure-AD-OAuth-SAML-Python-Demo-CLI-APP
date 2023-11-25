@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from knack.util import CLIError
 from knack.log import get_logger
 
+from dada_core.credential import Credential
 from .util import (
     is_wsl,
     is_windows,
@@ -31,7 +32,9 @@ logger = get_logger(__name__)
 
 
 class SAMLApp:
-    def __init__(self, entity_id, tenant_id, forth_authn=False, saml_response=None, credential=None):
+    def __init__(
+        self, entity_id, tenant_id, forth_authn: bool = False, saml_response=None, credential: Credential = None
+    ):
         if not entity_id:
             raise CLIError("Entity ID is not set.")
         if not tenant_id:
@@ -53,9 +56,14 @@ class SAMLApp:
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import padding
 
-        private_key = load_pem_private_key(
-            self.credential.private_key.encode(), password=None, backend=default_backend()
-        )
+        if self.credential.private_key:
+            private_key = load_pem_private_key(
+                self.credential.private_key.encode(), password=None, backend=default_backend()
+            )
+        else:
+            raise CLIError(
+                "Private key is not found. Please execute 'dada credential --path <private key or pfx file path> --passphrase <passphrase>' to set private key."
+            )
         signature = private_key.sign(encode_saml_request.encode(), padding.PKCS1v15(), hashes.SHA256())
         signature_encoded = base64.b64encode(signature)
 
@@ -99,6 +107,11 @@ class SAMLApp:
         saml_request_param += f"&Signature={signature_quoted}"
         return saml_request_param
 
+    def _pack_saml_request(self, request_xml):
+        request_deflated = zlib.compress(request_xml.encode("utf-8"))[2:-4]
+        saml_request_encoded = base64.b64encode(request_deflated).decode("utf-8")
+        return quote(saml_request_encoded)
+
     def _generate_saml_request_url(self, is_sign=False, is_force_authn=False, name_id_format=None, authn_context=None):
         authn_request = ET.Element(
             "samlp:AuthnRequest",
@@ -124,17 +137,14 @@ class SAMLApp:
 
         request_xml = ET.tostring(authn_request, encoding="unicode")
         logger.debug(f"Saml Request XML: {request_xml}")
-        request_deflated = zlib.compress(request_xml.encode("utf-8"))[2:-4]
-        saml_request_encoded = base64.b64encode(request_deflated).decode("utf-8")
-        saml_request_quoted = quote(saml_request_encoded)
 
-        saml_request_param = f"SAMLRequest={saml_request_quoted}"
+        packed_xml = self._pack_saml_request(request_xml)
+        saml_request_param = f"SAMLRequest={packed_xml}"
+
         if is_sign:
             saml_request_param = self._add_signature_param(saml_request_param)
 
-        saml_request_url = f"{self.idp_url}?{saml_request_param}"
-        logger.debug(f"Saml Request URL: {saml_request_url}")
-        return saml_request_url
+        return f"{self.idp_url}?{saml_request_param}"
 
     def _saml_request_worker(self, results, is_sign, is_force_authn, name_id_format, authn_context):
         if is_windows():
@@ -158,6 +168,7 @@ class SAMLApp:
             return 0
 
         saml_request_url = self._generate_saml_request_url(is_sign, is_force_authn, name_id_format, authn_context)
+        logger.debug(f"Saml Request URL: {saml_request_url}")
 
         # launch browser:
         succ = open_page_in_browser(saml_request_url)

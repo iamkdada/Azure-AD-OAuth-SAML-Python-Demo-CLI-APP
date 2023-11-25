@@ -6,10 +6,15 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.serialization import pkcs12, load_pem_private_key
 
 from knack.util import CLIError
+from knack.log import get_logger
+
+logger = get_logger(__name__)
 
 
 class Credential:
-    def __init__(self, secret, public_key, private_key, cert_file_path=None, pass_phrase=None):
+    def __init__(
+        self, secret: str, public_key: str, private_key: str, cert_file_path: str = None, pass_phrase: str = None
+    ):
         self._public_key = public_key
         self._private_key = private_key
         self._secret = secret
@@ -51,11 +56,6 @@ class Credential:
     def secret(self, value):
         os.environ["CLIENT_SECRET"] = value
         self._secret = value
-
-    def get_thumbprint(self):
-        cert_obj = x509.load_pem_x509_certificate(self.public_key.encode())
-        self._thumbprint = cert_obj.fingerprint(hashes.SHA1())
-        return self._thumbprint.hex().upper()
 
     def load_cert_file(self, cert_file_path, pass_phrase=None):
         file_extension = os.path.splitext(cert_file_path)[1].lower()
@@ -102,3 +102,56 @@ class Credential:
         else:
             public_key = x509.load_der_x509_certificate(cert_data, default_backend())
             self.public_key = public_key.public_bytes(encoding=serialization.Encoding.PEM).decode()
+
+    def _calc_thumbprint(self):
+        cert_obj = x509.load_pem_x509_certificate(self.public_key.encode())
+        return cert_obj.fingerprint(hashes.SHA1())
+
+    def get_thumbprint(self):
+        return self._calc_thumbprint().hex().upper()
+
+    def generate_jwt_assertion(self, tenant_id, client_id):
+        import base64
+        import time
+        import uuid
+        import jwt
+
+        EXPIRE_IN = 600
+        ALGORITHM = "RS256"
+
+        """
+        JWT assertion format
+        https://learn.microsoft.com/en-us/entra/identity-platform/certificate-credentials
+        """
+
+        try:
+            x5t = base64.urlsafe_b64encode(self._calc_thumbprint()).decode()
+        except:
+            raise CLIError(
+                "Certificate is not valid. Please execute 'dada credential --path <cert file path>' to set certificate"
+            )
+
+        now = time.time()
+        headers = {"alg": ALGORITHM, "typ": "JWT", "x5t": x5t}
+        payload = {
+            "aud": f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            "iss": client_id,
+            "sub": client_id,
+            "iat": now,
+            "exp": now + EXPIRE_IN,
+            "nbf": now,
+            "jti": str(uuid.uuid4()),
+        }
+        try:
+            jwt_assertion = jwt.encode(
+                payload,
+                self.private_key.encode(),
+                algorithm=ALGORITHM,
+                headers=headers,
+            )
+        except:
+            raise CLIError(
+                "Private Key is not valid. Please execute 'dada credential --path <cert file path>' to set certificate"
+            )
+        logger.debug(f"client_assertion: {jwt_assertion}")
+        return jwt_assertion

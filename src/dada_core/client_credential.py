@@ -1,16 +1,12 @@
 import os
-import time
-import uuid
-import base64
 
 import jwt
 import requests
 
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes
-
 from knack.util import CLIError
 from knack.log import get_logger
+
+from dada_core.credential import Credential
 
 
 EXPIRE_IN = 600
@@ -19,11 +15,11 @@ logger = get_logger(__name__)
 
 
 class ClientCredentialApp:
-    def __init__(self, client_id, tenant_id, credential, access_token):
+    def __init__(self, client_id: str, tenant_id: str, credential: Credential, access_token: str):
         if not client_id:
-            raise CLIError("Client ID is not set.")
+            raise CLIError("Client ID is not set. Please execute 'dada configure --client-id <client-id>'")
         if not tenant_id:
-            raise CLIError("Tenant ID is not set.")
+            raise CLIError("Tenant ID is not set.Please execute 'dada configure --tenant-id <tenant-id>'")
 
         self.client_id = client_id
         self.credential = credential
@@ -43,45 +39,6 @@ class ClientCredentialApp:
     def access_token(self, value):
         os.environ["CLIENT_CREDENTIAL_AT"] = value
         self._access_token = value
-
-    def create_jwt_assertion(self):
-        """
-        JWT assertion format
-        https://learn.microsoft.com/en-us/entra/identity-platform/certificate-credentials
-        """
-
-        try:
-            cert_obj = x509.load_pem_x509_certificate(self.credential.public_key.encode())
-            x5t = base64.urlsafe_b64encode(cert_obj.fingerprint(hashes.SHA1())).decode()
-        except:
-            raise CLIError(
-                "Public Key is not valid. Please execute 'dada credential --path <cert file path>' to set certificate"
-            )
-
-        now = time.time()
-        headers = {"alg": ALGORITHM, "typ": "JWT", "x5t": x5t}
-        payload = {
-            "aud": f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token",
-            "iss": self.client_id,
-            "sub": self.client_id,
-            "iat": now,
-            "exp": now + EXPIRE_IN,
-            "nbf": now,
-            "jti": str(uuid.uuid4()),
-        }
-        try:
-            jwt_assertion = jwt.encode(
-                payload,
-                self.credential.private_key.encode(),
-                algorithm=ALGORITHM,
-                headers=headers,
-            )
-        except:
-            raise CLIError(
-                "Private Key is not valid. Please execute 'dada credential --path <cert file path>' to set certificate"
-            )
-        logger.debug(f"client_assertion: {jwt_assertion}")
-        return jwt_assertion
 
     def _log_token_request_params(self, params):
         logger.debug("---------------Token request param ---------------")
@@ -107,7 +64,7 @@ class ClientCredentialApp:
             params["client_secret"] = self.credential.secret
         else:
             params["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-            params["client_assertion"] = self.create_jwt_assertion()
+            params["client_assertion"] = self.credential.generate_jwt_assertion(self.tenant_id, self.client_id)
 
         self._log_token_request_params(params)
         response = requests.post(f"{self.ca_url}/oauth2/v2.0/token", headers=headers, data=params)
