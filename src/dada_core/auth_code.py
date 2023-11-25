@@ -298,43 +298,64 @@ class AuthCodeApp:
     def get_refresh_token(self):
         return self.refresh_token
 
-    def graph_request(self, url_path="me", ver="v1.0", method="GET", body=None):
+    def _cae_error_handler(self, www_auth_header):
+        start = www_auth_header.find('claims="') + len('claims="')
+        end = www_auth_header.find('"', start)
+        claims_encoded = www_auth_header[start:end]
+        claims = decode_base64(claims_encoded)
+        logger.debug("CAE claims challenge: %r", claims)
+        return claims
+
+    def _image_response_handler(self, response):
+        while True:
+            try:
+                save_path = input("Enter the path to save the image: ")
+                if os.path.isdir(save_path):
+                    raise IsADirectoryError("Entered path is a directory. Please enter a file path.")
+                with open(save_path, "wb") as f:
+                    f.write(response.content)
+                print(f"Image saved to {save_path}")
+                break
+            except (IsADirectoryError, FileNotFoundError, PermissionError) as e:
+                print(f"Error: {e}. Please try again.")
+
+    def graph_request(self, url_path="me", ver="v1.0", method="GET", body=None, params=None):
+        print(url_path)
         base_url = "https://graph.microsoft.com"
         url = f"{base_url}/{ver}/{url_path}"
         headers = {"Authorization": f"Bearer {self.access_token}"}
-        if method != "GET":
+
+        if method in ["POST", "PUT", "PATCH"] and body:
             headers["Content-type"] = "application/json"
-        if body:
-            body = json.loads(body)
+            body = json.dumps(body)
+
         method_function = {
             "GET": requests.get,
             "POST": requests.post,
             "PUT": requests.put,
             "PATCH": requests.patch,
+            "DELETE": requests.delete,
         }
+
         result = {}
         if method in method_function:
-            response = method_function[method](url, headers=headers, data=body)
+            response = method_function[method](url, headers=headers, data=body, params=params)
             if response.ok:
-                result["body"] = response.json()
+                if response.headers.get("Content-Type", "").startswith("image/"):
+                    self._image_response_handler(response)
+                else:
+                    result["body"] = response.json()
+                result["status code"] = response.status_code
                 return result
 
             else:
                 if response.status_code == 401 and "WWW-Authenticate" in response.headers:
                     """Get client capabilities"""
-                    www_authenticate_header = response.headers["WWW-Authenticate"]
-                    start = www_authenticate_header.find('claims="') + len('claims="')
-                    end = www_authenticate_header.find('"', start)
-                    claims_encoded = www_authenticate_header[start:end]
-                    claims = decode_base64(claims_encoded)
-
-                    logger.debug("CAE claims challenge: %r", claims)
-
+                    claims = self._cae_error_handler(response.headers["WWW-Authenticate"])
                     os.environ["CAE_CLAIMS_CHALLENGE"] = claims
 
                 result["status code"] = response.status_code
                 result["body"] = response.json()
                 return result
-
         else:
             raise ValueError(f"HTTP method '{method}' is not supported.")
