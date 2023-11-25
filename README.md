@@ -57,7 +57,7 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
 
 ## App Setting
 
-### OIDC App
+### OIDC, OAuth App
 #### Entra ID (Azure AD)
    1. Browse to [Azure Portal]>[Microsoft Entra ID]>[App Registrations] and select New registration.
    2. Enter a Name for your application, for example dada-cli-oidc. Users of your app might see this name, and you can change it later.
@@ -74,7 +74,7 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
       ```
    2. Let's token request
       ```bash
-      dada auth-code token_request
+      dada auth-code token-request
       ```
 
 ### SAML App
