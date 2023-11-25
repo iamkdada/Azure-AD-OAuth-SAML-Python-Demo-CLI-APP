@@ -295,10 +295,9 @@ class AuthCodeApp:
         decoded_token = jwt.decode(self.id_token, options={"verify_signature": False})
         return decoded_token
 
-    def get_refresh_token(self):
-        return self.refresh_token
-
     def _cae_error_handler(self, www_auth_header):
+        if www_auth_header.find('claims="') == -1:
+            return
         start = www_auth_header.find('claims="') + len('claims="')
         end = www_auth_header.find('"', start)
         claims_encoded = www_auth_header[start:end]
@@ -320,7 +319,6 @@ class AuthCodeApp:
                 print(f"Error: {e}. Please try again.")
 
     def graph_request(self, url_path="me", ver="v1.0", method="GET", body=None, params=None):
-        print(url_path)
         base_url = "https://graph.microsoft.com"
         url = f"{base_url}/{ver}/{url_path}"
         headers = {"Authorization": f"Bearer {self.access_token}"}
@@ -337,25 +335,25 @@ class AuthCodeApp:
             "DELETE": requests.delete,
         }
 
-        result = {}
-        if method in method_function:
-            response = method_function[method](url, headers=headers, data=body, params=params)
-            if response.ok:
-                if response.headers.get("Content-Type", "").startswith("image/"):
-                    self._image_response_handler(response)
-                else:
-                    result["body"] = response.json()
-                result["status code"] = response.status_code
-                return result
-
-            else:
-                if response.status_code == 401 and "WWW-Authenticate" in response.headers:
-                    """Get client capabilities"""
-                    claims = self._cae_error_handler(response.headers["WWW-Authenticate"])
-                    os.environ["CAE_CLAIMS_CHALLENGE"] = claims
-
-                result["status code"] = response.status_code
-                result["body"] = response.json()
-                return result
-        else:
+        if method not in method_function:
             raise ValueError(f"HTTP method '{method}' is not supported.")
+
+        token_payload = jwt.decode(self.access_token, options={"verify_signature": False})
+        result = {"request": {"url": url, "scope": token_payload["scp"]}, "response": {}}
+
+        response = method_function[method](url, headers=headers, data=body, params=params)
+        result["response"]["status code"] = response.status_code
+
+        if response.ok:
+            if response.headers.get("Content-Type", "").startswith("image/"):
+                self._image_response_handler(response)
+            else:
+                result["response"]["body"] = response.json()
+        else:
+            if response.status_code == 401 and "WWW-Authenticate" in response.headers:
+                claims = self._cae_error_handler(response.headers["WWW-Authenticate"])
+                if claims:
+                    os.environ["CAE_CLAIMS_CHALLENGE"] = claims
+            result["response"]["body"] = response.json()
+
+        return result

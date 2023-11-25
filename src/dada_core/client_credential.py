@@ -1,4 +1,5 @@
 import os
+import json
 
 import jwt
 import requests
@@ -7,6 +8,7 @@ from knack.util import CLIError
 from knack.log import get_logger
 
 from dada_core.credential import Credential
+from .util import decode_base64
 
 
 EXPIRE_IN = 600
@@ -94,3 +96,66 @@ class ClientCredentialApp:
             raise CLIError(
                 "Not found access token. Please execute 'dada client_cred token_request' to obtain an access token."
             )
+
+    def _cae_error_handler(self, www_auth_header):
+        if www_auth_header.find('claims="') == -1:
+            return
+        start = www_auth_header.find('claims="') + len('claims="')
+        end = www_auth_header.find('"', start)
+        claims_encoded = www_auth_header[start:end]
+        claims = decode_base64(claims_encoded)
+        logger.debug("CAE claims challenge: %r", claims)
+        return claims
+
+    def _image_response_handler(self, response):
+        while True:
+            try:
+                save_path = input("Enter the path to save the image: ")
+                if os.path.isdir(save_path):
+                    raise IsADirectoryError("Entered path is a directory. Please enter a file path.")
+                with open(save_path, "wb") as f:
+                    f.write(response.content)
+                print(f"Image saved to {save_path}")
+                break
+            except (IsADirectoryError, FileNotFoundError, PermissionError) as e:
+                print(f"Error: {e}. Please try again.")
+
+    def graph_request(self, url_path="users", ver="v1.0", method="GET", body=None, params=None):
+        base_url = "https://graph.microsoft.com"
+        url = f"{base_url}/{ver}/{url_path}"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+
+        if method in ["POST", "PUT", "PATCH"] and body:
+            headers["Content-type"] = "application/json"
+            body = json.dumps(body)
+
+        method_function = {
+            "GET": requests.get,
+            "POST": requests.post,
+            "PUT": requests.put,
+            "PATCH": requests.patch,
+            "DELETE": requests.delete,
+        }
+
+        if method not in method_function:
+            raise ValueError(f"HTTP method '{method}' is not supported.")
+
+        token_payload = jwt.decode(self.access_token, options={"verify_signature": False})
+        result = {"request": {"url": url, "roles": token_payload["roles"]}, "response": {}}
+
+        response = method_function[method](url, headers=headers, data=body, params=params)
+        result["response"]["status code"] = response.status_code
+
+        if response.ok:
+            if response.headers.get("Content-Type", "").startswith("image/"):
+                self._image_response_handler(response)
+            else:
+                result["response"]["body"] = response.json()
+        else:
+            if response.status_code == 401 and "WWW-Authenticate" in response.headers:
+                claims = self._cae_error_handler(response.headers["WWW-Authenticate"])
+                if claims:
+                    os.environ["CAE_CLAIMS_CHALLENGE"] = claims
+            result["response"]["body"] = response.json()
+
+        return result

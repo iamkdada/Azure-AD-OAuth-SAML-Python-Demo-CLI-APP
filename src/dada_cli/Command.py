@@ -29,11 +29,12 @@ class DadaCommandsLoader(CLICommandsLoader):
         with CommandGroup(self, "auth-code", "dada_cli.Command#{}") as g:
             g.command("token-request", "auth_code_token_request")
             g.command("show", "get_auth_code_token")
-            g.command("graph-request", "graph_request")
+            g.command("graph-request", "auth_code_graph_request")
 
         with CommandGroup(self, "client-cred", "dada_cli.Command#{}") as g:
             g.command("token-request", "client_cred_token_request")
             g.command("show", "client_cred_get_token")
+            g.command("graph-request", "client_cred_graph_request")
 
         with CommandGroup(self, "credential", "dada_cli.Command#{}") as g:
             g.command("thumbprint", "credential_get_thumbprint")
@@ -52,22 +53,28 @@ class DadaCommandsLoader(CLICommandsLoader):
 
         with ArgumentsContext(self, "auth-code token_request") as ac:
             ac.argument("cae", action="store_true", help="Enable decoding")
-            ac.argument("scopes", type=str)
+            ac.argument("scopes", type=str, help="ex: 'User.Read openid profile'")
 
         with ArgumentsContext(self, "auth-code graph-request") as ac:
-            ac.argument("url", type=str)
-            ac.argument("method", type=str)
-            ac.argument("body", type=str)
-            ac.argument("ver", type=str)
+            ac.argument("url", type=str, help="graph url path. ex: me, users/<user id>")
+            ac.argument("method", type=str, help="HTTP method. ex: GET, POST")
+            ac.argument("body", type=str, help="HTTP Request Body")
+            ac.argument("ver", type=str, help="Graph API version. ex:v1.0, beta")
 
         with ArgumentsContext(self, "client-cred token-request") as ac:
-            ac.argument("credential", type=str, required=True)
-            ac.argument("secret", type=str)
-            ac.argument("pfx", type=str)
-            ac.argument("passphrase", type=str)
+            ac.argument("credential", type=str, required=True, help="cert or secret")
+            ac.argument("secret", type=str, help="Client secret text")
+            ac.argument("pfx", type=str, help="pfx file path.")
+            ac.argument("passphrase", type=str, help="pfx file passphrase")
 
         with ArgumentsContext(self, "client-cred show") as ac:
             ac.argument("decode", action="store_true", help="Enable decoding")
+
+        with ArgumentsContext(self, "client-cred graph-request") as ac:
+            ac.argument("url", type=str, help="graph url path. ex: users, users/<user id>")
+            ac.argument("method", type=str, help="HTTP method. ex: GET, POST")
+            ac.argument("body", type=str, help="HTTP Request Body")
+            ac.argument("ver", type=str, help="Graph API version. ex:v1.0, beta")
 
         with ArgumentsContext(self, "credential assertion") as ac:
             ac.argument("tenant_id", type=str)
@@ -136,7 +143,7 @@ def get_auth_code_token(decode=False, token_type="access"):
         raise ValueError(f"Token type '{token_type}' is not supported.")
 
 
-def graph_request(url="me", method="GET", body=None, ver="v1.0"):
+def auth_code_graph_request(url="me", method="GET", body=None, ver="v1.0"):
     env = get_env_ver()
     auth_code_app = AuthCodeApp(
         env["CLIENT_ID"], env["TENANT_ID"], env["AUTH_CODE_AT"], env["AUTH_CODE_IT"], env["AUTH_CODE_RT"]
@@ -174,6 +181,13 @@ def client_cred_get_token(decode=None):
     if decode:
         return cred_app.get_decode_access_token()
     return cred_app.get_access_token()
+
+
+def client_cred_graph_request(url="users", method="GET", body=None, ver="v1.0"):
+    env = get_env_ver()
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
+    cred_app = ClientCredentialApp(env["CLIENT_ID"], env["TENANT_ID"], cred, env["CLIENT_CREDENTIAL_AT"])
+    return cred_app.graph_request(url_path=url, method=method, body=body, ver=ver)
 
 
 def credential_get_assertion(tenant_id=None, client_id=None):
