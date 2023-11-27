@@ -26,7 +26,7 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
   1. Installation
       ```bash
       $ git clone https://github.com/iamkdada/Azure-AD-OAuth-SAML-Python-Demo-CLI-APP.git
-      $ cd dada-cli
+      $ cd Azure-AD-OAuth-SAML-Python-Demo-CLI-APP
       $ python3 -m venv venv
       $ pip3 install -r requirements.txt
       $ export PATH="$PATH:$PWD/src"
