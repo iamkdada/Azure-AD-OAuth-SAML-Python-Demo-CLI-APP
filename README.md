@@ -94,7 +94,7 @@ DADA CLI is a CLI tool designed for testing the operation and features of Entra 
       ```
    2. Let's saml request
       ```bash
-      dada saml saml_request
+      dada saml saml-request
       ```
 
 ## Example
