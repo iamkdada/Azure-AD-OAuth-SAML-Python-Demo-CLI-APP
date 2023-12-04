@@ -23,7 +23,6 @@ class DadaCommandsLoader(CLICommandsLoader):
         with CommandGroup(self, "", "dada_cli.command#{}") as g:
             g.command("configure", "set_dada")
             g.command("logout", "logout")
-            g.command("credential", "set_credential")
             g.command("jwt-decode", "jwt_decode")
 
         with CommandGroup(self, "auth-code", "dada_cli.command#{}") as g:
@@ -37,6 +36,7 @@ class DadaCommandsLoader(CLICommandsLoader):
             g.command("graph-request", "client_cred_graph_request")
 
         with CommandGroup(self, "credential", "dada_cli.command#{}") as g:
+            g.command("set", "set_credential")
             g.command("thumbprint", "credential_get_thumbprint")
             g.command("assertion", "credential_get_assertion")
 
@@ -86,7 +86,7 @@ class DadaCommandsLoader(CLICommandsLoader):
             ac.argument("name_id_format", type=str)
             ac.argument("authn_context", type=str)
 
-        with ArgumentsContext(self, "credential") as ac:
+        with ArgumentsContext(self, "credential set") as ac:
             ac.argument("path", type=str)
             ac.argument("passphrase", type=str)
             ac.argument("secret", type=str)

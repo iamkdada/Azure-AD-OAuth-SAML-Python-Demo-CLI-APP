@@ -16,34 +16,6 @@
     dada logout
     ```
 
-- dada credential
-  
-  Set up the application credentials.
-  Credential information for a certificate allows registration of both a public key and a private key, but not just one of the two. Therefore, for SAML apps and client credential apps, either the same certificate information must be used, or if different certificates are to be used, this command must be utilized to update the certificate information before using the app
-
-    ```bash
-    dada credential [--path]
-                    [--passphrase]
-                    [--secret]
-    ```
-  ### Example
-
-    Load the Pfx file and set the private key and public key."
-    ```bash
-    dada credential --path "./selfsigncert.pfx" --passphrase "password"
-    ```
-  
-    Load and set the private key and public key separately.
-    ```bash
-    dada credential --path "./privatekey.pem"
-    dada credential --path "./cert.pem"
-    ```
-  
-    Set client secret.
-    ```bash
-    dada credential --secret "secret string"
-    ```
-
 - dada jwt-decode
 
   Decode jwt string.
@@ -189,6 +161,33 @@
     Specify the HTTP Request Body.
 
 ## dada credential
+### set
+  
+  Set up the application credentials.
+  Credential information for a certificate allows registration of both a public key and a private key, but not just one of the two. Therefore, for SAML apps and client credential apps, either the same certificate information must be used, or if different certificates are to be used, this command must be utilized to update the certificate information before using the app
+
+    ```bash
+    dada credential set [--path]
+                        [--passphrase]
+                        [--secret]
+    ```
+  ### Example
+
+    Load the Pfx file and set the private key and public key."
+    ```bash
+    dada credential set --path "./selfsigncert.pfx" --passphrase "password"
+    ```
+  
+    Load and set the private key and public key separately.
+    ```bash
+    dada credential set --path "./privatekey.pem"
+    dada credential set --path "./cert.pem"
+    ```
+  
+    Set client secret.
+    ```bash
+    dada credential set --secret "secret string"
+    ```
 ### thumbprint
 
   Obtain the Certificate fingerprint (SHA 1).
