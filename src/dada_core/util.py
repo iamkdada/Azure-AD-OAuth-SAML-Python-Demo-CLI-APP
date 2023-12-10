@@ -24,32 +24,73 @@ def is_windows():
     return platform_name == "windows"
 
 
+def get_wsl_distro_from_powershell():
+    try:
+        # PowerShellを使用してWSLのディストリビューション一覧を取得
+        #   NAME                   STATE           VERSION
+        # * Ubuntu-20.04           Running         2
+        #   Ubuntu                 Stopped         2
+        #   docker-desktop-data    Stopped         2
+        command = "powershell.exe -Command wsl -l -v"
+        result = subprocess.run(
+            command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+
+        lines = result.stdout.split("\n")
+        for line in lines:
+            if "*" in line:  # 現在のディストリビューションには '*' が付いています
+                return line.split()[1]
+
+    except subprocess.CalledProcessError:
+        return "Unknown"
+
+
+def remove_null_chars(s):
+    return s.replace("\x00", "")
+
+
+def run_powershell_command(command):
+    try:
+        return subprocess.Popen(["powershell.exe", "-NoProfile", "-Command", command]).wait()
+    except OSError:
+        pass  # 適切なエラーハンドリングをここに追加
+
+
+def open_page_in_wsl(url):
+    if url.startswith("https"):
+        command = f"Start-Process {url}"
+    else:
+        distro = get_wsl_distro_from_powershell()
+        distro = remove_null_chars(distro)
+        file_path = f"//wsl$/{distro}{url}".replace("/", "\\")
+        command = f'Start-Process "{file_path}"'
+
+    return run_powershell_command(command)
+
+
 def open_page_in_browser(url):
     platform_name, _ = _get_platform_info()
 
-    if is_wsl():  # windows 10 linux subsystem
-        try:
-            # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe
-            # Ampersand (&) should be quoted
-            return subprocess.Popen(
-                [
-                    "powershell.exe",
-                    "-NoProfile",
-                    "-Command",
-                    'Start-Process "{}"'.format(url),
-                ]
-            ).wait()
-        except OSError:  # WSL might be too old  # FileNotFoundError introduced in Python 3
-            pass
+    if is_wsl():
+        return open_page_in_wsl(url)
     elif platform_name == "darwin":
-        # handle 2 things:
-        # a. On OSX sierra, 'python -m webbrowser -t <url>' emits out "execution error: <url> doesn't
-        #    understand the "open location" message"
-        return subprocess.Popen(["open", url])
+        return run_powershell_command(f'open "{url}"')
+
     try:
-        return webbrowser.open(url, new=2)  # 2 means: open in a new tab, if possible
+        webbrowser.open(url, new=2)  # 2 means: open in a new tab, if possible
     except TypeError:  # See https://bugs.python.org/msg322439
-        return webbrowser.open(url, new=2)
+        webbrowser.open(url, new=2)
+
+    return None
+
+
+def create_temp_html_file(form_html):
+    import tempfile
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
+    with open(temp_file.name, "w") as file:
+        file.write(form_html)
+    return temp_file.name
 
 
 class ClientRedirectServer(HTTPServer):  # pylint: disable=too-few-public-methods
@@ -59,7 +100,6 @@ class ClientRedirectServer(HTTPServer):  # pylint: disable=too-few-public-method
 class ClientRedirectHandler(BaseHTTPRequestHandler):
     # pylint: disable=line-too-long
     def log_message(self, format, *args):
-        # 何も出力しないことで、標準のログメッセージを抑制
         pass
 
     def do_GET(self):

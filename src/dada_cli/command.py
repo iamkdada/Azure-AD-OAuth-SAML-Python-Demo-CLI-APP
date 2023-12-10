@@ -85,6 +85,7 @@ class DadaCommandsLoader(CLICommandsLoader):
             ac.argument("force_authn", action="store_true")
             ac.argument("name_id_format", type=str)
             ac.argument("authn_context", type=str)
+            ac.argument("binding", type=str)
 
         with ArgumentsContext(self, "credential set") as ac:
             ac.argument("path", type=str)
@@ -214,7 +215,7 @@ def set_credential(path=None, passphrase=None, secret=None):
     return
 
 
-def saml_request(sign=False, force_authn=False, name_id_format=None, authn_context=None):
+def saml_request(sign=False, force_authn=False, name_id_format=None, authn_context=None, binding="redirect"):
     env = get_env_ver()
     cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     saml_app = SAMLApp(
@@ -223,7 +224,7 @@ def saml_request(sign=False, force_authn=False, name_id_format=None, authn_conte
         saml_response=env["SAML_RESPONSE"],
         credential=cred,
     )
-    return saml_app.saml_request(sign, force_authn, name_id_format, authn_context)
+    return saml_app.saml_request(sign, force_authn, name_id_format, authn_context, binding)
 
 
 def get_saml_response():

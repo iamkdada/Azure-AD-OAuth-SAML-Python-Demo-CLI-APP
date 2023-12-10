@@ -11,7 +11,7 @@ from knack.util import CLIError
 from knack.log import get_logger
 
 from dada_core.credential import Credential
-from .util import (
+from dada_core.util import (
     is_wsl,
     is_windows,
     open_page_in_browser,
@@ -19,6 +19,7 @@ from .util import (
     SAMLRedirectHandler,
     decode_base64,
     pretty_print_xml,
+    create_temp_html_file,
 )
 
 name_id_policy_mapping = {
@@ -112,7 +113,36 @@ class SAMLApp:
         saml_request_encoded = base64.b64encode(request_deflated).decode("utf-8")
         return quote(saml_request_encoded)
 
-    def _generate_saml_request_url(self, is_sign=False, is_force_authn=False, name_id_format=None, authn_context=None):
+    def _generate_saml_request_redirect_binding(
+        self, is_sign=False, is_force_authn=False, name_id_format=None, authn_context=None
+    ):
+        saml_request = self._generate_saml_request(is_force_authn, name_id_format, authn_context)
+        packed_xml = self._pack_saml_request(saml_request)
+        saml_request_param = f"SAMLRequest={packed_xml}"
+
+        if is_sign:
+            saml_request_param = self._add_signature_param(saml_request_param)
+
+        return f"{self.idp_url}?{saml_request_param}"
+
+    def _generate_saml_request_post_binding(
+        self, is_sign=False, is_force_authn=False, name_id_format=None, authn_context=None
+    ):
+        saml_request_xml = self._generate_saml_request(is_force_authn, name_id_format, authn_context)
+        saml_request = base64.b64encode(saml_request_xml.encode("utf-8")).decode("utf-8")
+        form_html_str = f"""
+        <html>
+            <body onload="document.forms[0].submit()">
+                <form action="{self.idp_url}" method="post">
+                    <input type="hidden" name="SAMLRequest" value="{saml_request}">
+                </form>
+            </body>
+        </html>
+        """
+        logger.debug(form_html_str)
+        return create_temp_html_file(form_html_str)
+
+    def _generate_saml_request(self, is_force_authn=False, name_id_format=None, authn_context=None):
         authn_request = ET.Element(
             "samlp:AuthnRequest",
             {
@@ -137,16 +167,9 @@ class SAMLApp:
 
         request_xml = ET.tostring(authn_request, encoding="unicode")
         logger.debug(f"Saml Request XML: {request_xml}")
+        return request_xml
 
-        packed_xml = self._pack_saml_request(request_xml)
-        saml_request_param = f"SAMLRequest={packed_xml}"
-
-        if is_sign:
-            saml_request_param = self._add_signature_param(saml_request_param)
-
-        return f"{self.idp_url}?{saml_request_param}"
-
-    def _saml_request_worker(self, results, is_sign, is_force_authn, name_id_format, authn_context):
+    def _saml_request_worker(self, results, is_sign, is_force_authn, name_id_format, authn_context, saml_binding):
         if is_windows():
             SAMLRedirectServer.allow_reuse_address = False
         elif is_wsl():
@@ -167,11 +190,13 @@ class SAMLApp:
         if self.reply_url is None:
             return 0
 
-        saml_request_url = self._generate_saml_request_url(is_sign, is_force_authn, name_id_format, authn_context)
-        logger.debug(f"Saml Request URL: {saml_request_url}")
+        if saml_binding == "redirect":
+            url = self._generate_saml_request_redirect_binding(is_sign, is_force_authn, name_id_format, authn_context)
+        else:
+            url = self._generate_saml_request_post_binding()
 
         # launch browser:
-        succ = open_page_in_browser(saml_request_url)
+        succ = open_page_in_browser(url)
         if succ is False:
             web_server.server_close()
             results["no_browser"] = True
@@ -193,9 +218,11 @@ class SAMLApp:
 
         return encode_saml_response
 
-    def saml_request(self, is_sign=False, is_force_authn=False, name_id_format=None, authn_context=None):
+    def saml_request(
+        self, is_sign=False, is_force_authn=False, name_id_format=None, authn_context=None, binding="redirect"
+    ):
         self.saml_response = decode_base64(
-            self._saml_request_worker({}, is_sign, is_force_authn, name_id_format, authn_context)
+            self._saml_request_worker({}, is_sign, is_force_authn, name_id_format, authn_context, binding)
         )
         os.environ["SAML_RESPONSE"] = self.saml_response
         print(pretty_print_xml(self.saml_response))

@@ -220,6 +220,7 @@
                          [--force-authn]
                          [--name-id-format]
                          [--authn-context]
+                         [--binding]
   ```
 
   - --sign
@@ -239,6 +240,11 @@
   - --authn-context
 
     By specifying this option, you can add an Authn Context to the SAML request. For example, specify urn:oasis:names:tc:SAML:2.0:ac:classes:X509.
+  
+  - --binding
+
+    Specifies the binding method for the SAML request. 
+    Specify either 'redirect' or 'post'.
 
 
 ### dada saml show
