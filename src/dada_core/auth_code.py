@@ -154,7 +154,7 @@ class AuthCodeApp:
 
         authorization_code_request_url = self._generate_authorization_code_request_url()
         logger.debug(f"authorization code url: {authorization_code_request_url}")
-
+        print(authorization_code_request_url)
         succ = open_page_in_browser(authorization_code_request_url)
         if succ is False:
             web_server.server_close()

@@ -51,14 +51,14 @@ def remove_null_chars(s):
 
 def run_powershell_command(command):
     try:
-        return subprocess.Popen(["powershell.exe", "-NoProfile", "-Command", command]).wait()
+        return subprocess.Popen(["powershell.exe", "-NoProfile", "-Command", f"{command}"]).wait()
     except OSError:
         pass  # 適切なエラーハンドリングをここに追加
 
 
 def open_page_in_wsl(url):
     if url.startswith("https"):
-        command = f"Start-Process {url}"
+        command = f'Start-Process "{url}"'
     else:
         distro = get_wsl_distro_from_powershell()
         distro = remove_null_chars(distro)
