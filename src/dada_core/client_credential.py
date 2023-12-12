@@ -59,7 +59,7 @@ class ClientCredentialApp:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         params = {}
         params["client_id"] = self.client_id
-        params["scope"] = "api://99ac6fa6-2c4e-4b38-ae18-93ae8317c93e/.default"
+        params["scope"] = "api://ff96f1fc-f652-4c24-b515-945c571ec248/.default"
         params["grant_type"] = "client_credentials"
 
         if "secret" in credential:

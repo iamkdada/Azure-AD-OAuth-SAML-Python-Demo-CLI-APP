@@ -154,7 +154,7 @@ def auth_code_graph_request(url="me", method="GET", body=None, ver="v1.0"):
 
 def client_cred_token_request(credential, secret=None, pfx=None, passphrase=None):
     env = get_env_ver()
-    cred = Credential(secret=secret, public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
+    cred = Credential(secret=env["CLIENT_SECRET"], public_key=env["PUBLIC_KEY"], private_key=env["PRIVATE_KEY"])
     cred_app = ClientCredentialApp(env["CLIENT_ID"], env["TENANT_ID"], cred, env["CLIENT_CREDENTIAL_AT"])
 
     if "secret" in credential:
